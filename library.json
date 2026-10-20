@@ -1,0 +1,32 @@
+{
+  "name": "BMI160_ESPx",
+  "version": "1.0.0",
+  "description": "Industrial-grade, high-performance Bosch BMI160 6-DOF IMU driver engineered exclusively for Espressif ESP32 family. Features active 9-clock bus recovery, FreeRTOS background worker, hardware FOC calibration, and pedometer engine.",
+  "keywords": [
+    "imu",
+    "bmi160",
+    "esp32",
+    "freertos",
+    "accelerometer",
+    "gyroscope",
+    "pedometer",
+    "i2c"
+  ],
+  "authors": [
+    {
+      "name": "scintill-a"
+    }
+  ],
+  "license": "MIT",
+  "frameworks": "arduino",
+  "platforms": "espressif32",
+  "export": {
+    "include": [
+      "src/*",
+      "library.json",
+      "library.properties",
+      "README.md",
+      "examples/*"
+    ]
+  }
+}
