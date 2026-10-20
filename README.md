@@ -1,17 +1,52 @@
 # BMI160_ESPx
 
-Industrial-grade, high-performance, and ultra-ergonomic C++17 driver for the Bosch BMI160 6-DOF IMU on Espressif ESP32.
+An ESP32 Arduino and PlatformIO library for the Bosch BMI160 6-axis inertial measurement unit (accelerometer and gyroscope).
 
-## Why BMI160_ESPx?
+---
 
-* **No Convoluted Enums:** Configure ranges and rates using plain natural numbers: `setAccelRange(2)`, `setGyroRange(250)`, `setDataRate(100)`.
-* **Real-Time Tilt in Degrees:** Built-in complementary 6-DOF orientation engine outputs **Pitch**, **Roll**, and **Yaw** in degrees directly (`m.pitch`, `m.roll`).
-* **Rock-Solid I2C:** Safe GPIO bus clearing before `Wire.begin()` avoids ESP32 Core 3.x handle corruption (`ESP_ERR_INVALID_STATE`). Strict 12-byte burst reads prevent sensor NACKs.
-* **Auto-Probing & Diagnostics:** Automatically detects `0x68` and `0x69`, with an automated I2C bus scanner fallback if wiring is disconnected.
-* **Dual-Core FreeRTOS Streamer:** Asynchronous sampling worker pinned to Core 1 pushes directly to FreeRTOS queues.
-* **Hardware Pedometer:** Built-in step counter runs on-chip with zero CPU load.
+## Features
 
-## Quick Start (3 Lines)
+- **Raw and scaled data:** Reads acceleration in g (`ax`, `ay`, `az`) and angular velocity in degrees/s (`gx`, `gy`, `gz`).
+- **Sensor fusion options:** Includes both a **Complementary filter** and a 6-DOF **Madgwick AHRS filter** for real-time pitch, roll, yaw, and quaternion calculations.
+- **Configurable ranges and rates:**
+  - Accelerometer: ±2g, ±4g, ±8g, ±16g
+  - Gyroscope: ±125, ±250, ±500, ±1000, ±2000 °/s
+  - Output data rate: 25 Hz to 1600 Hz
+- **I2C bus recovery:** Includes clock-pulsing bus recovery before initializing `Wire` to clear hung I2C states.
+- **Auto-address detection:** Checks both standard BMI160 I2C addresses (`0x68` and `0x69`).
+- **Hardware pedometer:** Reads the chip's internal step detector.
+- **FreeRTOS support:** Optional background sampling task pinned to a specific ESP32 core.
+
+---
+
+## Wiring (ESP32)
+
+| BMI160 Pin | ESP32 Pin | Notes |
+| :--- | :--- | :--- |
+| **VCC** | 3.3V | Connect to 3.3V logic (do not use 5V) |
+| **GND** | GND | Common ground |
+| **SDA** | GPIO 21 | Default I2C SDA (configurable) |
+| **SCL** | GPIO 22 | Default I2C SCL (configurable) |
+| **SA0 / SDO** | GND or 3.3V | GND = `0x68`, 3.3V = `0x69` |
+
+---
+
+## Installation
+
+### PlatformIO
+Add to your `platformio.ini`:
+```ini
+lib_deps =
+    https://github.com/scintill-a/BMI160_ESPx.git
+```
+Or clone/copy into your project's `lib/` directory.
+
+### Arduino IDE
+Download or clone this repository into your `Arduino/libraries/` folder.
+
+---
+
+## Basic Example
 
 ```cpp
 #include <Arduino.h>
@@ -22,47 +57,112 @@ BMI160_ESPx imu;
 void setup() {
     Serial.begin(115200);
 
-    // 1. Connect (SDA=21, SCL=22) - auto-detects address, clears bus, applies defaults
-    imu.begin(21, 22);
+    // Initialize on SDA=21, SCL=22
+    if (!imu.begin(21, 22)) {
+        Serial.println("Failed to find BMI160 sensor. Check wiring.");
+        while (1) delay(100);
+    }
 
-    // 2. Optional: calibrate stationary gyro bias
+    // Optional: calibrate stationary gyro bias
     imu.calibrate();
 }
 
 void loop() {
-    // 3. Read motion + orientation in degrees
     Motion m = imu.read();
 
-    Serial.printf("Pitch: %5.1f deg | Roll: %5.1f deg | Accel: (%+.2f, %+.2f, %+.2f) g\n",
+    Serial.printf("Pitch: %5.1f° | Roll: %5.1f° | Accel: (%+.2f, %+.2f, %+.2f) g\n",
                   m.pitch, m.roll, m.ax, m.ay, m.az);
 
-    delay(50);
+    delay(20);
 }
 ```
 
-## Customizable & Manipulatable API
+---
 
+## Sensor Fusion
+
+The library includes two built-in orientation estimation algorithms:
+
+### 1. Madgwick AHRS (`FusionMode::MADGWICK`, Default)
+A 6-DOF gradient-descent quaternion filter. It computes complete 3D spatial attitude without gimbal lock, providing normalized quaternions (`q0`, `q1`, `q2`, `q3`) alongside `pitch`, `roll`, and `yaw`.
 ```cpp
-// Plain natural number configuration (all have zero-arg defaults!)
-imu.setAccelRange();      // Defaults to 2 (±2g). Options: 2, 4, 8, 16
-imu.setGyroRange();       // Defaults to 250 (±250 deg/s). Options: 125, 250, 500, 1000, 2000
-imu.setDataRate();        // Defaults to 100 (100 Hz). Options: 25, 50, 100, 200, 400, etc.
-imu.setDegrees(true);     // Toggle degrees vs radians (default: true)
-imu.setFilterWeight();    // Complementary filter weight (default: 0.98f)
-imu.setMadgwickBeta();    // Madgwick filter divergence gain (default: 0.10f)
-
-// Quick getters
-float pitch = imu.getPitch();
-float roll  = imu.getRoll();
-float temp  = imu.getTemperature();
-
-// Hardware pedometer
-imu.enablePedometer(true);
-uint16_t steps = imu.getSteps();
-imu.resetSteps();
-
-// Low-level register access
-imu.writeRegister(reg, val);
-imu.readRegister(reg, val);
-imu.readBurst(reg, buffer, len);
+imu.setFusionAlgorithm(FusionMode::MADGWICK);
+imu.setMadgwickBeta(0.1f); // Tuning parameter: divergence gain beta (default: 0.1f)
 ```
+
+### 2. Complementary Filter (`FusionMode::COMPLEMENTARY`)
+A lightweight 2-axis tilt filter combining integrated gyro rates with the accelerometer gravity vector:
+```text
+angle = alpha × (angle + gyro × dt) + (1 - alpha) × accel_angle
+```
+```cpp
+imu.setFusionAlgorithm(FusionMode::COMPLEMENTARY);
+imu.setFilterWeight(0.98f); // Weight factor alpha in [0.0, 1.0] (default: 0.98f)
+```
+
+---
+
+## API Reference
+
+### Initialization & Calibration
+```cpp
+bool begin(int sda = 21, int scl = 22, uint32_t frequency = 400000);
+bool calibrate(int samples = 200);
+```
+
+### Sensor & Fusion Configuration
+```cpp
+void setAccelRange(int range_g = 2);     // 2, 4, 8, 16
+void setGyroRange(int range_dps = 250);  // 125, 250, 500, 1000, 2000
+void setDataRate(int rate_hz = 100);     // 25, 50, 100, 200, 400, etc.
+void setDegrees(bool use_deg = true);    // true for degrees, false for radians
+
+// Fusion algorithm selection & tuning
+void setFusionAlgorithm(FusionMode mode);// FusionMode::MADGWICK or FusionMode::COMPLEMENTARY
+void setMadgwickBeta(float beta = 0.1f); // Beta gain for Madgwick AHRS
+void setFilterWeight(float alpha = 0.98f);// Weight alpha for Complementary filter
+```
+
+### Data Reading
+```cpp
+Motion read();               // Returns ax, ay, az, gx, gy, gz, pitch, roll, yaw
+float getPitch();
+float getRoll();
+float getTemperature();
+```
+
+### Hardware Pedometer
+```cpp
+void enablePedometer(bool enable = true);
+uint16_t getSteps();
+void resetSteps();
+```
+
+### FreeRTOS Background Task
+```cpp
+// Runs continuous sampling on Core 1 at the specified rate
+bool startWorker(int core = 1, int priority = 2);
+void stopWorker();
+```
+
+### Direct Register Access
+```cpp
+bool writeRegister(uint8_t reg, uint8_t value);
+bool readRegister(uint8_t reg, uint8_t &value);
+bool readBurst(uint8_t start_reg, uint8_t *buffer, size_t length);
+```
+
+---
+
+## Examples
+
+Included in the [examples](examples/) directory:
+- `01_BasicMotion`: Reads raw accelerometer, gyroscope, and computed pitch/roll.
+- `02_Pedometer`: Step counting with on-chip hardware pedometer.
+- `03_FreeRTOS_Worker`: Background task sampling without blocking `loop()`.
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
