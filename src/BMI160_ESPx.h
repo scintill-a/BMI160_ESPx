@@ -16,6 +16,8 @@ using FusionMode      = BMI160_ESPx_Types::FusionMode;
 using FilterBandwidth = BMI160_ESPx_Types::FilterBandwidth;
 using PowerMode       = BMI160_ESPx_Types::PowerMode;
 using ErrorCode       = BMI160_ESPx_Types::ErrorCode;
+using RangeG          = BMI160_ESPx_Types::RangeG;
+using RangeDPS        = BMI160_ESPx_Types::RangeDPS;
 
 /**
  * @class BMI160_ESPx
