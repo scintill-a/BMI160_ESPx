@@ -412,14 +412,14 @@ public:
     /**
      * @brief Zeroes/tares pitch, roll, and yaw angles at the current physical orientation.
      * 
-     * Captures current attitude and applies it as an offset reference so that subsequent
-     * angle outputs read (0, 0, 0) at the current position. Useful for leveling out
-     * mechanical mounting tilts.
+     * Captures current attitude in the active coordinate frame (including sign inversions)
+     * and sets it as an offset reference so subsequent angle outputs read (0, 0, 0)
+     * at the current physical position.
      */
     void tare();
 
     /**
-     * @brief Manually sets tare offset angles.
+     * @brief Manually sets tare offset angles in the active coordinate frame.
      * @param pitch_offset Pitch angle offset to subtract (in degrees or radians).
      * @param roll_offset Roll angle offset to subtract (in degrees or radians).
      * @param yaw_offset Yaw angle offset to subtract (in degrees or radians).
@@ -427,7 +427,7 @@ public:
     void setTare(float pitch_offset, float roll_offset, float yaw_offset);
 
     /**
-     * @brief Retrieves currently active tare angle offsets.
+     * @brief Retrieves currently active tare angle offsets in the active coordinate frame.
      * @param[out] pitch_offset Active pitch tare offset in degrees or radians.
      * @param[out] roll_offset  Active roll tare offset in degrees or radians.
      * @param[out] yaw_offset   Active yaw tare offset in degrees or radians.

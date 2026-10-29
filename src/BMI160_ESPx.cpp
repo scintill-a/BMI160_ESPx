@@ -380,9 +380,12 @@ void BMI160_ESPx::resetOrientation() {
                 _q3 = -sr * sp;
 
                 // Sync cached last motion so getters return true state immediately
-                _last_motion.pitch = _pitch;
-                _last_motion.roll  = _roll;
-                _last_motion.yaw   = _yaw;
+                float user_p = _invert_pitch ? -_pitch : _pitch;
+                float user_r = _invert_roll  ? -_roll  : _roll;
+                float user_y = _invert_yaw   ? -_yaw   : _yaw;
+                _last_motion.pitch = user_p - _tare_pitch;
+                _last_motion.roll  = user_r - _tare_roll;
+                _last_motion.yaw   = user_y - _tare_yaw;
                 _last_motion.qw    = _q0;
                 _last_motion.qx    = _q1;
                 _last_motion.qy    = _q2;
@@ -415,20 +418,61 @@ void BMI160_ESPx::setAxisRemap(int8_t x_axis, int8_t y_axis, int8_t z_axis) {
     resetOrientation();
 }
 
-void BMI160_ESPx::invertPitch(bool invert) { _invert_pitch = invert; }
-void BMI160_ESPx::invertRoll(bool invert)  { _invert_roll  = invert; }
-void BMI160_ESPx::invertYaw(bool invert)   { _invert_yaw   = invert; }
+void BMI160_ESPx::invertPitch(bool invert) {
+    if (_invert_pitch != invert) {
+        _invert_pitch = invert;
+        _tare_pitch = -_tare_pitch;
+        float user_p = _invert_pitch ? -_pitch : _pitch;
+        _last_motion.pitch = user_p - _tare_pitch;
+        if (!_use_degrees) _last_motion.pitch *= 0.017453292519943295f;
+    }
+}
+
+void BMI160_ESPx::invertRoll(bool invert) {
+    if (_invert_roll != invert) {
+        _invert_roll = invert;
+        _tare_roll = -_tare_roll;
+        float user_r = _invert_roll ? -_roll : _roll;
+        _last_motion.roll = user_r - _tare_roll;
+        if (!_use_degrees) _last_motion.roll *= 0.017453292519943295f;
+    }
+}
+
+void BMI160_ESPx::invertYaw(bool invert) {
+    if (_invert_yaw != invert) {
+        _invert_yaw = invert;
+        _tare_yaw = -_tare_yaw;
+        float user_y = _invert_yaw ? -_yaw : _yaw;
+        _last_motion.yaw = user_y - _tare_yaw;
+        if (!_use_degrees) _last_motion.yaw *= 0.017453292519943295f;
+    }
+}
 
 void BMI160_ESPx::tare() {
-    _tare_pitch = _pitch;
-    _tare_roll  = _roll;
-    _tare_yaw   = _yaw;
+    _tare_pitch = _invert_pitch ? -_pitch : _pitch;
+    _tare_roll  = _invert_roll  ? -_roll  : _roll;
+    _tare_yaw   = _invert_yaw   ? -_yaw   : _yaw;
+    _last_motion.pitch = 0.0f;
+    _last_motion.roll  = 0.0f;
+    _last_motion.yaw   = 0.0f;
 }
 
 void BMI160_ESPx::setTare(float pitch_offset, float roll_offset, float yaw_offset) {
     _tare_pitch = pitch_offset;
     _tare_roll  = roll_offset;
     _tare_yaw   = yaw_offset;
+    float user_p = _invert_pitch ? -_pitch : _pitch;
+    float user_r = _invert_roll  ? -_roll  : _roll;
+    float user_y = _invert_yaw   ? -_yaw   : _yaw;
+    _last_motion.pitch = user_p - _tare_pitch;
+    _last_motion.roll  = user_r - _tare_roll;
+    _last_motion.yaw   = user_y - _tare_yaw;
+    if (!_use_degrees) {
+        static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+        _last_motion.pitch *= DEG_TO_RAD_F;
+        _last_motion.roll  *= DEG_TO_RAD_F;
+        _last_motion.yaw   *= DEG_TO_RAD_F;
+    }
 }
 
 void BMI160_ESPx::getTare(float &pitch_offset, float &roll_offset, float &yaw_offset) const {
@@ -447,6 +491,18 @@ void BMI160_ESPx::resetTare() {
     _tare_pitch = 0.0f;
     _tare_roll  = 0.0f;
     _tare_yaw   = 0.0f;
+    float user_p = _invert_pitch ? -_pitch : _pitch;
+    float user_r = _invert_roll  ? -_roll  : _roll;
+    float user_y = _invert_yaw   ? -_yaw   : _yaw;
+    _last_motion.pitch = user_p;
+    _last_motion.roll  = user_r;
+    _last_motion.yaw   = user_y;
+    if (!_use_degrees) {
+        static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+        _last_motion.pitch *= DEG_TO_RAD_F;
+        _last_motion.roll  *= DEG_TO_RAD_F;
+        _last_motion.yaw   *= DEG_TO_RAD_F;
+    }
 }
 
 // Sensor Fusion Engines (Complementary & Madgwick AHRS)
@@ -733,18 +789,16 @@ bool BMI160_ESPx::read(Motion &m) {
     float gy_out = gy_dps;
     float gz_out = gz_dps;
 
-    // Apply tare offsets and sign inversion
-    float pitch_val = _pitch - _tare_pitch;
-    float roll_val  = _roll - _tare_roll;
-    float yaw_val   = _yaw - _tare_yaw;
+    // SOTA Robotics Coordinate Transform Pipeline:
+    // 1. Transform raw fusion attitude to user body frame (axis inversion)
+    float user_pitch = _invert_pitch ? -_pitch : _pitch;
+    float user_roll  = _invert_roll  ? -_roll  : _roll;
+    float user_yaw   = _invert_yaw   ? -_yaw   : _yaw;
 
-    if (_invert_pitch) pitch_val = -pitch_val;
-    if (_invert_roll)  roll_val  = -roll_val;
-    if (_invert_yaw)   yaw_val   = -yaw_val;
-
-    float pitch_out = pitch_val;
-    float roll_out  = roll_val;
-    float yaw_out   = yaw_val;
+    // 2. Subtract user-space tare offsets
+    float pitch_out = user_pitch - _tare_pitch;
+    float roll_out  = user_roll  - _tare_roll;
+    float yaw_out   = user_yaw   - _tare_yaw;
 
     // If radians requested, convert from degrees
     if (!_use_degrees) {
