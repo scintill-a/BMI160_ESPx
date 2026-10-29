@@ -227,6 +227,10 @@ bool BMI160_ESPx::setAccelRange(uint8_t g) {
     return ok;
 }
 
+bool BMI160_ESPx::setAccelRange(RangeG range) {
+    return setAccelRange(static_cast<uint8_t>(range));
+}
+
 /**
  * @brief Sets the full-scale measurement range of the gyroscope.
  * 
@@ -259,6 +263,10 @@ bool BMI160_ESPx::setGyroRange(uint16_t dps) {
     return ok;
 }
 
+bool BMI160_ESPx::setGyroRange(RangeDPS range) {
+    return setGyroRange(static_cast<uint16_t>(range));
+}
+
 /**
  * @brief Sets Output Data Rate (ODR) for both accelerometer and gyroscope.
  * 
@@ -269,6 +277,7 @@ bool BMI160_ESPx::setGyroRange(uint16_t dps) {
  */
 bool BMI160_ESPx::setDataRate(uint16_t hz) {
     if (!_acquireMutex()) return false;
+    _active_odr_hz = hz;
     uint8_t odr_val = 0x08; // default 100 Hz
 
     if (hz <= 25)        odr_val = 0x06; // 25 Hz
@@ -293,7 +302,7 @@ bool BMI160_ESPx::setDataRate(uint16_t hz) {
  */
 bool BMI160_ESPx::setDLPF(FilterBandwidth bw) {
     _active_bw = bw;
-    return setDataRate(100);
+    return setDataRate(_active_odr_hz);
 }
 
 /**
@@ -671,17 +680,20 @@ void BMI160_ESPx::_updateMadgwick(float ax, float ay, float az, float gx_dps, fl
         s1 = _8q1 * q1q1 + _4q1 * q3q3 - _2q3 * ax + 4.0f * q0q0 * _q1 - _2q0 * ay - _4q1 + _8q1 * q2q2 + _4q1 * az;
         s2 = 4.0f * q0q0 * _q2 + _2q0 * ax + _8q2 * q2q2 + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _4q2 * az;
         s3 = 4.0f * q1q1 * _q3 - _2q1 * ax + 4.0f * q2q2 * _q3 - _2q2 * ay;
-        recipNorm = 1.0f / sqrt(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3);
-        s0 *= recipNorm;
-        s1 *= recipNorm;
-        s2 *= recipNorm;
-        s3 *= recipNorm;
+        float s_norm_sq = s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3;
+        if (s_norm_sq > 1e-10f) {
+            recipNorm = 1.0f / sqrt(s_norm_sq);
+            s0 *= recipNorm;
+            s1 *= recipNorm;
+            s2 *= recipNorm;
+            s3 *= recipNorm;
 
-        // Apply feedback step
-        qDot1 -= beta * s0;
-        qDot2 -= beta * s1;
-        qDot3 -= beta * s2;
-        qDot4 -= beta * s3;
+            // Apply feedback step
+            qDot1 -= beta * s0;
+            qDot2 -= beta * s1;
+            qDot3 -= beta * s2;
+            qDot4 -= beta * s3;
+        }
     }
 
     // Integrate rate of change of quaternion
@@ -691,11 +703,14 @@ void BMI160_ESPx::_updateMadgwick(float ax, float ay, float az, float gx_dps, fl
     _q3 += qDot4 * dt;
 
     // Normalise quaternion
-    recipNorm = 1.0f / sqrt(_q0 * _q0 + _q1 * _q1 + _q2 * _q2 + _q3 * _q3);
-    _q0 *= recipNorm;
-    _q1 *= recipNorm;
-    _q2 *= recipNorm;
-    _q3 *= recipNorm;
+    float q_norm_sq = _q0 * _q0 + _q1 * _q1 + _q2 * _q2 + _q3 * _q3;
+    if (q_norm_sq > 1e-10f) {
+        recipNorm = 1.0f / sqrt(q_norm_sq);
+        _q0 *= recipNorm;
+        _q1 *= recipNorm;
+        _q2 *= recipNorm;
+        _q3 *= recipNorm;
+    }
 
     // Convert quaternion to Euler angles in degrees
     float sin_p = 2.0f * (_q1 * _q3 - _q0 * _q2);
@@ -1363,6 +1378,7 @@ bool BMI160_ESPx::enableTapInterrupt(bool double_tap, uint8_t threshold_lsb, int
  * @return uint8_t Number of responsive I2C devices discovered.
  */
 uint8_t BMI160_ESPx::scanBus() {
+    if (!_acquireMutex(pdMS_TO_TICKS(500))) return 0;
     uint8_t found = 0;
     for (uint8_t a = 1; a < 127; ++a) {
         _wire.beginTransmission(a);
@@ -1374,6 +1390,7 @@ uint8_t BMI160_ESPx::scanBus() {
     if (found == 0) {
         Serial.println("  -> No I2C devices detected! Verify 3.3V, GND, SDA (GPIO 21), and SCL (GPIO 22).");
     }
+    _releaseMutex();
     return found;
 }
 
@@ -1407,6 +1424,7 @@ void BMI160_ESPx::_taskLoop() {
         vTaskDelayUntil(&wake, period);
     }
 
+    _task_handle = nullptr;
     vTaskDelete(nullptr);
 }
 
@@ -1448,10 +1466,11 @@ bool BMI160_ESPx::startAsyncStream(uint16_t rate_hz, QueueHandle_t out_queue, Ba
  */
 void BMI160_ESPx::stopAsyncStream() {
     if (_task_handle != nullptr) {
+        TaskHandle_t th = _task_handle;
         _stream_running = false;
-        delay(20);
         _task_handle = nullptr;
         _target_queue = nullptr;
+        vTaskDelete(th);
     }
 }
 

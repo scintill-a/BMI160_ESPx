@@ -214,6 +214,12 @@ public:
     bool setAccelRange(uint8_t g = 2);
 
     /**
+     * @brief Sets accelerometer measurement range using strongly-typed RangeG enum.
+     * @param range Full-scale range (`RangeG::G_2`, `RangeG::G_4`, `RangeG::G_8`, `RangeG::G_16`).
+     */
+    bool setAccelRange(RangeG range);
+
+    /**
      * @brief Sets the full-scale measurement range of the gyroscope using natural numbers.
      * 
      * Writes to `REG_GYR_RANGE` (0x43) and updates internal scale factors:
@@ -228,6 +234,12 @@ public:
      * @return `false` if an invalid range was provided or I2C write failed.
      */
     bool setGyroRange(uint16_t dps = 250);
+
+    /**
+     * @brief Sets gyroscope measurement range using strongly-typed RangeDPS enum.
+     * @param range Full-scale range (`RangeDPS::DPS_125`, `DPS_250`, `DPS_500`, `DPS_1000`, `DPS_2000`).
+     */
+    bool setGyroRange(RangeDPS range);
 
     /**
      * @brief Sets the sensor Output Data Rate (ODR) for both accelerometer and gyroscope.
@@ -461,9 +473,9 @@ public:
      * 
      * @param samples Number of stationary samples to average (default: 200).
      *                Delays ~4 ms between samples (~800 ms total execution time for 200 samples).
-     * @param run_hardware_foc If `true`, runs Bosch on-chip Fast Offset Compensation before software bias refinement (default: `true`).
+     * @param run_hardware_foc If `true`, runs Bosch on-chip Fast Offset Compensation before software bias refinement (default: `false`).
      */
-    void calibrate(uint16_t samples = 200, bool run_hardware_foc = true);
+    void calibrate(uint16_t samples = 200, bool run_hardware_foc = false);
 
     // Advanced Silicon Features (Robotics & Flight Control)
 
@@ -786,6 +798,7 @@ private:
     bool _use_degrees = true;
     FusionMode _fusion_mode = FusionMode::MADGWICK;
     FilterBandwidth _active_bw = FilterBandwidth::OSR4;
+    uint16_t _active_odr_hz = 100;
     ErrorCode _last_error = ErrorCode::NONE;
 
     // Stability & Dynamic Rejection features
