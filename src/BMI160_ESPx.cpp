@@ -950,27 +950,40 @@ void BMI160_ESPx::calibrate(uint16_t samples, bool run_hardware_foc) {
         return;
     }
 
-    float sum_x = 0.0f;
-    float sum_y = 0.0f;
-    float sum_z = 0.0f;
+    float sum_gx = 0.0f;
+    float sum_gy = 0.0f;
+    float sum_gz = 0.0f;
+
+    float sum_ax = 0.0f;
+    float sum_ay = 0.0f;
+    float sum_az = 0.0f;
 
     _bias_gx = 0.0f;
     _bias_gy = 0.0f;
     _bias_gz = 0.0f;
 
     uint16_t valid = 0;
-    uint8_t buf[6];
+    uint8_t buf[12]; // Read Gyro (0x0C..0x11) + Accel (0x12..0x17) simultaneously
 
     for (uint16_t i = 0; i < samples; ++i) {
         if (_acquireMutex(pdMS_TO_TICKS(20))) {
-            if (readBurst(REG_DATA_GYRO, buf, 6)) {
+            if (readBurst(REG_DATA_GYRO, buf, 12)) {
                 int16_t raw_gx = static_cast<int16_t>((buf[1] << 8) | buf[0]);
                 int16_t raw_gy = static_cast<int16_t>((buf[3] << 8) | buf[2]);
                 int16_t raw_gz = static_cast<int16_t>((buf[5] << 8) | buf[4]);
 
-                sum_x += static_cast<float>(raw_gx) / _gyro_scale;
-                sum_y += static_cast<float>(raw_gy) / _gyro_scale;
-                sum_z += static_cast<float>(raw_gz) / _gyro_scale;
+                int16_t raw_ax = static_cast<int16_t>((buf[7] << 8) | buf[6]);
+                int16_t raw_ay = static_cast<int16_t>((buf[9] << 8) | buf[8]);
+                int16_t raw_az = static_cast<int16_t>((buf[11] << 8) | buf[10]);
+
+                sum_gx += static_cast<float>(raw_gx) / _gyro_scale;
+                sum_gy += static_cast<float>(raw_gy) / _gyro_scale;
+                sum_gz += static_cast<float>(raw_gz) / _gyro_scale;
+
+                sum_ax += static_cast<float>(raw_ax) / _accel_scale;
+                sum_ay += static_cast<float>(raw_ay) / _accel_scale;
+                sum_az += static_cast<float>(raw_az) / _accel_scale;
+
                 valid++;
             }
             _releaseMutex();
@@ -979,10 +992,68 @@ void BMI160_ESPx::calibrate(uint16_t samples, bool run_hardware_foc) {
     }
 
     if (valid > 0) {
-        _bias_gx = sum_x / static_cast<float>(valid);
-        _bias_gy = sum_y / static_cast<float>(valid);
-        _bias_gz = sum_z / static_cast<float>(valid);
+        float f_valid = static_cast<float>(valid);
+        _bias_gx = sum_gx / f_valid;
+        _bias_gy = sum_gy / f_valid;
+        _bias_gz = sum_gz / f_valid;
+
+        // Apply body-frame axis remapping to the averaged gravity vector
+        float mean_s_ax = sum_ax / f_valid;
+        float mean_s_ay = sum_ay / f_valid;
+        float mean_s_az = sum_az / f_valid;
+
+        float ax = _remapAxis(_remap_x, mean_s_ax, mean_s_ay, mean_s_az);
+        float ay = _remapAxis(_remap_y, mean_s_ax, mean_s_ay, mean_s_az);
+        float az = _remapAxis(_remap_z, mean_s_ax, mean_s_ay, mean_s_az);
+
+        float a_norm = sqrt(ax * ax + ay * ay + az * az);
+        if (a_norm > 0.5f) {
+            float pitch_rad = atan2(-ax, sqrt(ay * ay + az * az));
+            float roll_rad  = atan2(ay, az);
+            _pitch = pitch_rad * (180.0f / static_cast<float>(M_PI));
+            _roll  = roll_rad  * (180.0f / static_cast<float>(M_PI));
+            _yaw   = 0.0f;
+
+            float cr = cos(roll_rad * 0.5f);
+            float sr = sin(roll_rad * 0.5f);
+            float cp = cos(pitch_rad * 0.5f);
+            float sp = sin(pitch_rad * 0.5f);
+
+            _q0 = cr * cp;
+            _q1 = sr * cp;
+            _q2 = cr * sp;
+            _q3 = -sr * sp;
+
+            // Sync cached last motion so getters return exact state immediately
+            float user_p = _invert_pitch ? -_pitch : _pitch;
+            float user_r = _invert_roll  ? -_roll  : _roll;
+            float user_y = _invert_yaw   ? -_yaw   : _yaw;
+            _last_motion.pitch = user_p - _tare_pitch;
+            _last_motion.roll  = user_r - _tare_roll;
+            _last_motion.yaw   = user_y - _tare_yaw;
+            if (!_use_degrees) {
+                static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+                _last_motion.pitch *= DEG_TO_RAD_F;
+                _last_motion.roll  *= DEG_TO_RAD_F;
+                _last_motion.yaw   *= DEG_TO_RAD_F;
+            }
+            _last_motion.qw = _q0;
+            _last_motion.qx = _q1;
+            _last_motion.qy = _q2;
+            _last_motion.qz = _q3;
+            _last_motion.ax = ax;
+            _last_motion.ay = ay;
+            _last_motion.az = az;
+            _last_motion.gx = 0.0f;
+            _last_motion.gy = 0.0f;
+            _last_motion.gz = 0.0f;
+            _last_motion.timestamp_us = esp_timer_get_time();
+            _last_filter_us = _last_motion.timestamp_us;
+            return;
+        }
     }
+
+    // Fallback if no valid samples were obtained
     resetOrientation();
 }
 

@@ -450,14 +450,14 @@ public:
     // Stationary Gyro Calibration
 
     /**
-     * @brief Runs an automatic stationary gyroscope zero-rate bias calibration.
+     * @brief Runs stationary calibration with joint gyroscope bias refinement and gravity vector alignment.
      * 
-     * Repeatedly samples the gyroscope while the sensor is completely motionless,
-     * computes the mean zero-rate bias per axis, and stores them in internal bias registers.
-     * These offsets are automatically subtracted during every subsequent `read()` call.
+     * Concurrently samples gyroscope zero-rate bias and accelerometer gravity vector across `samples`
+     * readings, establishes stationary bias offsets, and analytically aligns the initial attitude quaternion
+     * to the noise-free mean gravity vector. Subsequent orientation estimates and tare offsets are immediately
+     * settled at steady-state equilibrium upon return.
      * 
-     * @warning The sensor MUST remain completely stationary on a stable, vibration-free
-     *          surface while this function executes! Motion during calibration will corrupt offsets.
+     * @warning The sensor MUST remain completely stationary while this function executes!
      * 
      * @param samples Number of stationary samples to average (default: 200).
      *                Delays ~4 ms between samples (~800 ms total execution time for 200 samples).
