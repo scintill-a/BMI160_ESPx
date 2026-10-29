@@ -21,7 +21,7 @@ using RangeDPS        = BMI160_ESPx_Types::RangeDPS;
 
 /**
  * @class BMI160_ESPx
- * @brief Industrial-grade, high-performance driver for the Bosch BMI160 6-DOF IMU on Espressif ESP32.
+ * @brief Driver for the Bosch BMI160 6-DOF IMU on Espressif ESP32.
  * 
  * Features:
  * - Direct natural number configuration (`setAccelRange(2)`, `setGyroRange(250)`, `setDataRate(100)`).
@@ -65,7 +65,7 @@ public:
      *    If not found, executes a full I2C bus scan to assist the developer in troubleshooting wiring.
      * 4. Issues a software reset (`CMD_SOFT_RESET = 0xB6`) and delays for internal bootloader completion.
      * 5. Awakens Accelerometer and Gyroscope into Normal power mode.
-     * 6. Configures standard high-performance defaults (±2g range, ±250 deg/s range, 100 Hz ODR).
+     * 6. Configures standard defaults (±2g range, ±250 deg/s range, 100 Hz ODR).
      * 7. Accelerates the I2C peripheral clock to the requested operating frequency (e.g., 400 kHz).
      * 8. Resets orientation angles, quaternions, and filter timing state.
      * 
@@ -100,7 +100,7 @@ public:
     /**
      * @brief Direct motion return for clean one-line access.
      * 
-     * Ergonomic value-returning overload of `read(Motion &m)`. Ideal for concise assignment
+     * Value-returning overload of `read(Motion &m)`. Ideal for concise assignment
      * in polling loops (`Motion m = imu.read();`).
      * 
      * @return Motion Populated `Motion` struct containing the latest sensor measurements and attitude.
@@ -198,7 +198,7 @@ public:
     float getTemperature();
     const Motion& getLastMotion() const { return _last_motion; }
 
-    // Ergonomic Customization (Plain Natural Numbers)
+    // Configuration Methods
 
     /**
      * @brief Sets the full-scale measurement range of the accelerometer using natural numbers.
@@ -283,7 +283,7 @@ public:
      * Automatically calls `resetOrientation()` upon switching algorithms to prevent state discontinuity.
      * 
      * Available modes:
-     * - `FusionMode::COMPLEMENTARY`: Ultra-fast, deterministic 2-axis tilt filter combining
+     * - `FusionMode::COMPLEMENTARY`: Deterministic 2-axis tilt filter combining
      *                                accelerometer gravity vector with integrated gyro rates.
      *                                Negligible computational overhead.
      * - `FusionMode::MADGWICK`: Gradient-descent 6-DOF quaternion AHRS orientation filter.

@@ -4,7 +4,7 @@
 
 /**
  * @file BMI160_Types.h
- * @brief Industrial-grade data structures and types for BMI160_ESPx.
+ * @brief Data structures and types for BMI160_ESPx.
  */
 
 namespace BMI160_ESPx_Types {
@@ -75,7 +75,7 @@ namespace BMI160_ESPx_Types {
         COMPLEMENTARY = 0,
 
         /**
-         * @brief SOTA 6-DOF gradient-descent quaternion AHRS filter.
+         * @brief 6-DOF gradient-descent quaternion AHRS filter.
          * 
          * Provides true 3D spatial attitude representation with zero gimbal lock.
          */

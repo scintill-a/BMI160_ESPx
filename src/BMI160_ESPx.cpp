@@ -161,7 +161,7 @@ bool BMI160_ESPx::begin(int sda, int scl, uint32_t frequency, uint8_t address) {
 
     _releaseMutex();
 
-    // 6. Set standard high-performance defaults (±2g, ±250 dps, 100 Hz)
+    // 6. Set standard defaults (±2g, ±250 dps, 100 Hz)
     setAccelRange(2);
     setGyroRange(250);
     setDataRate(100);
@@ -830,7 +830,7 @@ bool BMI160_ESPx::read(Motion &m) {
     float gy_out = gy_dps;
     float gz_out = gz_dps;
 
-    // SOTA Robotics Coordinate Transform Pipeline:
+    // Coordinate Transform Pipeline:
     // 1. Transform raw fusion attitude to user body frame (axis inversion)
     float user_pitch = _invert_pitch ? -_pitch : _pitch;
     float user_roll  = _invert_roll  ? -_roll  : _roll;
