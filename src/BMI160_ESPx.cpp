@@ -386,6 +386,12 @@ void BMI160_ESPx::resetOrientation() {
                 _last_motion.pitch = user_p - _tare_pitch;
                 _last_motion.roll  = user_r - _tare_roll;
                 _last_motion.yaw   = user_y - _tare_yaw;
+                if (!_use_degrees) {
+                    static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+                    _last_motion.pitch *= DEG_TO_RAD_F;
+                    _last_motion.roll  *= DEG_TO_RAD_F;
+                    _last_motion.yaw   *= DEG_TO_RAD_F;
+                }
                 _last_motion.qw    = _q0;
                 _last_motion.qx    = _q1;
                 _last_motion.qy    = _q2;
@@ -458,6 +464,12 @@ void BMI160_ESPx::tare() {
 }
 
 void BMI160_ESPx::setTare(float pitch_offset, float roll_offset, float yaw_offset) {
+    if (!_use_degrees) {
+        static constexpr float RAD_TO_DEG_F = 57.29577951308232f;
+        pitch_offset *= RAD_TO_DEG_F;
+        roll_offset  *= RAD_TO_DEG_F;
+        yaw_offset   *= RAD_TO_DEG_F;
+    }
     _tare_pitch = pitch_offset;
     _tare_roll  = roll_offset;
     _tare_yaw   = yaw_offset;
@@ -476,15 +488,29 @@ void BMI160_ESPx::setTare(float pitch_offset, float roll_offset, float yaw_offse
 }
 
 void BMI160_ESPx::getTare(float &pitch_offset, float &roll_offset, float &yaw_offset) const {
-    pitch_offset = _tare_pitch;
-    roll_offset  = _tare_roll;
-    yaw_offset   = _tare_yaw;
+    if (!_use_degrees) {
+        static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+        pitch_offset = _tare_pitch * DEG_TO_RAD_F;
+        roll_offset  = _tare_roll  * DEG_TO_RAD_F;
+        yaw_offset   = _tare_yaw   * DEG_TO_RAD_F;
+    } else {
+        pitch_offset = _tare_pitch;
+        roll_offset  = _tare_roll;
+        yaw_offset   = _tare_yaw;
+    }
 }
 
 void BMI160_ESPx::getRawOrientation(float &raw_pitch, float &raw_roll, float &raw_yaw) const {
-    raw_pitch = _pitch;
-    raw_roll  = _roll;
-    raw_yaw   = _yaw;
+    if (!_use_degrees) {
+        static constexpr float DEG_TO_RAD_F = 0.017453292519943295f;
+        raw_pitch = _pitch * DEG_TO_RAD_F;
+        raw_roll  = _roll  * DEG_TO_RAD_F;
+        raw_yaw   = _yaw   * DEG_TO_RAD_F;
+    } else {
+        raw_pitch = _pitch;
+        raw_roll  = _roll;
+        raw_yaw   = _yaw;
+    }
 }
 
 void BMI160_ESPx::resetTare() {
