@@ -395,6 +395,21 @@ public:
     void invertYaw(bool invert = true);
 
     /**
+     * @brief Checks if pitch angle inversion is active.
+     */
+    bool isPitchInverted() const { return _invert_pitch; }
+
+    /**
+     * @brief Checks if roll angle inversion is active.
+     */
+    bool isRollInverted() const { return _invert_roll; }
+
+    /**
+     * @brief Checks if yaw angle inversion is active.
+     */
+    bool isYawInverted() const { return _invert_yaw; }
+
+    /**
      * @brief Zeroes/tares pitch, roll, and yaw angles at the current physical orientation.
      * 
      * Captures current attitude and applies it as an offset reference so that subsequent
@@ -410,6 +425,22 @@ public:
      * @param yaw_offset Yaw angle offset to subtract (in degrees or radians).
      */
     void setTare(float pitch_offset, float roll_offset, float yaw_offset);
+
+    /**
+     * @brief Retrieves currently active tare angle offsets.
+     * @param[out] pitch_offset Active pitch tare offset in degrees or radians.
+     * @param[out] roll_offset  Active roll tare offset in degrees or radians.
+     * @param[out] yaw_offset   Active yaw tare offset in degrees or radians.
+     */
+    void getTare(float &pitch_offset, float &roll_offset, float &yaw_offset) const;
+
+    /**
+     * @brief Retrieves raw orientation before tare offsets and sign inversion are applied.
+     * @param[out] raw_pitch Un-tared internal pitch angle.
+     * @param[out] raw_roll  Un-tared internal roll angle.
+     * @param[out] raw_yaw   Un-tared internal yaw angle.
+     */
+    void getRawOrientation(float &raw_pitch, float &raw_roll, float &raw_yaw) const;
 
     /**
      * @brief Clears any active tare zero offsets back to 0.0.

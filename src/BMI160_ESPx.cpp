@@ -431,6 +431,18 @@ void BMI160_ESPx::setTare(float pitch_offset, float roll_offset, float yaw_offse
     _tare_yaw   = yaw_offset;
 }
 
+void BMI160_ESPx::getTare(float &pitch_offset, float &roll_offset, float &yaw_offset) const {
+    pitch_offset = _tare_pitch;
+    roll_offset  = _tare_roll;
+    yaw_offset   = _tare_yaw;
+}
+
+void BMI160_ESPx::getRawOrientation(float &raw_pitch, float &raw_roll, float &raw_yaw) const {
+    raw_pitch = _pitch;
+    raw_roll  = _roll;
+    raw_yaw   = _yaw;
+}
+
 void BMI160_ESPx::resetTare() {
     _tare_pitch = 0.0f;
     _tare_roll  = 0.0f;
