@@ -1,7 +1,7 @@
 {
   "name": "BMI160_ESPx",
   "version": "1.0.0",
-  "description": "An ESP32 library for the Bosch BMI160 6-axis IMU, with built-in sensor fusion, step counting, and I2C bus recovery.",
+  "description": "An ESP32 library for the Bosch BMI160 6-axis IMU with sensor fusion and I2C bus recovery.",
   "keywords": [
     "imu",
     "bmi160",
@@ -9,7 +9,6 @@
     "freertos",
     "accelerometer",
     "gyroscope",
-    "pedometer",
     "i2c"
   ],
   "authors": [

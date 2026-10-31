@@ -704,7 +704,7 @@ void BMI160_ESPx::_updateOrientation(float ax, float ay, float az, float gx, flo
 }
 
 /**
- * @brief Atomically reads high-speed motion telemetry and updates 6-DOF orientation.
+ * @brief Reads sensor data and updates orientation angles.
  */
 bool BMI160_ESPx::read(Motion &m) {
     uint8_t buffer[12]; // 12-byte burst read (6 Gyro + 6 Accel)

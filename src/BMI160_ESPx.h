@@ -18,14 +18,14 @@ using RangeDPS        = BMI160_ESPx_Types::RangeDPS;
 
 /**
  * @class BMI160_ESPx
- * @brief Streamlined, high-performance driver for the Bosch BMI160 6-DOF IMU on Espressif ESP32.
+ * @brief Driver for the Bosch BMI160 6-axis IMU on ESP32.
  * 
- * Core Features:
- * - Direct natural number configuration (setAccelRange(2), setGyroRange(250), setDataRate(100)).
- * - Real-time 6-DOF attitude estimation (Pitch, Roll, Yaw, Quaternions) via Madgwick AHRS or Complementary filter.
- * - Active 9-clock I2C bus recovery and line pre-check to prevent bus lockups.
- * - Stationary gyro calibration, tare zeroing, and coordinate remapping / axis inversion.
- * - FreeRTOS thread-safe I2C transactions.
+ * Features:
+ * - Range and rate configuration (setAccelRange, setGyroRange, setDataRate).
+ * - Orientation estimation (pitch, roll, yaw, quaternions) via Madgwick or Complementary filter.
+ * - 9-clock I2C bus recovery if SDA is held low.
+ * - Stationary gyro calibration, tare zeroing, and coordinate remapping / inversion.
+ * - FreeRTOS mutex around I2C transactions.
  */
 class BMI160_ESPx {
 public:
@@ -36,32 +36,30 @@ public:
     explicit BMI160_ESPx(TwoWire &wire = Wire);
 
     /**
-     * @brief Destructs the driver instance and safely deallocates the FreeRTOS mutex.
+     * @brief Destructor. Releases the FreeRTOS mutex.
      */
     virtual ~BMI160_ESPx();
 
-    // Quick-Start API
-
     /**
-     * @brief Connects to the sensor, clears bus contention, and applies defaults (±2g, ±250 deg/s, 100 Hz).
+     * @brief Initializes the sensor with default settings (±2g, ±250 deg/s, 100 Hz).
      * @param sda GPIO pin for SDA (default: 21).
      * @param scl GPIO pin for SCL (default: 22).
-     * @param frequency Operational I2C clock speed in Hz (default: 400000 Hz).
-     * @param address Specific 7-bit address (0 for auto probing 0x68 and 0x69).
+     * @param frequency I2C clock speed in Hz (default: 400000 Hz).
+     * @param address 7-bit I2C address (0 to auto probe 0x68 and 0x69).
      * @return true if initialized successfully; false otherwise.
      */
     bool begin(int sda = 21, int scl = 22, uint32_t frequency = 400000, uint8_t address = 0);
 
     /**
-     * @brief Atomically reads high-speed motion telemetry and updates 6-DOF orientation.
+     * @brief Reads sensor data and updates orientation angles.
      * @param[out] m Reference to Motion struct to populate.
      * @return true if read succeeded; false on bus error or timeout.
      */
     bool read(Motion &m);
 
     /**
-     * @brief Direct motion return for clean one-line access in polling loops.
-     * @return Motion struct with latest telemetry and attitude.
+     * @brief Reads sensor data and returns a Motion struct.
+     * @return Motion struct with latest readings and orientation.
      */
     Motion read();
 

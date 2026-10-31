@@ -33,7 +33,7 @@ void loop() {
     static uint32_t last_print = 0;
     uint32_t now = millis();
 
-    // High-speed 100 Hz IMU sampling & attitude update
+    // 100 Hz IMU sampling and attitude update
     if (now - last_sample >= 10) {
         last_sample = now;
         imu.read();

@@ -4,7 +4,7 @@
 
 /**
  * @file BMI160_Registers.h
- * @brief Streamlined register addresses, command codes, and constants for Bosch BMI160 IMU.
+ * @brief Register addresses, command codes, and constants for Bosch BMI160 IMU.
  */
 
 namespace BMI160_ESPx_Defs {

@@ -11,27 +11,26 @@ namespace BMI160_ESPx_Types {
 
     /**
      * @struct Motion
-     * @brief Primary motion, attitude, and telemetry packet.
+     * @brief Sensor readings and estimated orientation.
      * 
-     * Contains calibrated 3-axis linear acceleration, 3-axis angular velocity,
-     * calculated 6-DOF Euler orientation angles, 4-element unit orientation quaternion,
-     * internal die temperature, and microsecond precision timestamp.
+     * Contains 3-axis acceleration, 3-axis angular velocity,
+     * Euler angles, unit quaternion, die temperature, and timestamp.
      */
     struct Motion {
         // Accelerometer linear acceleration (in units of g, where 1g ≈ 9.80665 m/s²)
-        float ax = 0.0f; ///< Linear acceleration along X-axis (forward/backward) in g
-        float ay = 0.0f; ///< Linear acceleration along Y-axis (lateral left/right) in g
-        float az = 0.0f; ///< Linear acceleration along Z-axis (vertical up/down) in g
+        float ax = 0.0f; ///< Linear acceleration along X-axis in g
+        float ay = 0.0f; ///< Linear acceleration along Y-axis in g
+        float az = 0.0f; ///< Linear acceleration along Z-axis in g
 
         // Gyroscope angular velocity (in deg/s or rad/s depending on setDegrees())
-        float gx = 0.0f; ///< Calibrated angular velocity around X-axis (roll rate)
-        float gy = 0.0f; ///< Calibrated angular velocity around Y-axis (pitch rate)
-        float gz = 0.0f; ///< Calibrated angular velocity around Z-axis (yaw rate)
+        float gx = 0.0f; ///< Angular velocity around X-axis
+        float gy = 0.0f; ///< Angular velocity around Y-axis
+        float gz = 0.0f; ///< Angular velocity around Z-axis
 
-        // 6-DOF Orientation Euler Angles (in degrees or radians depending on setDegrees())
-        float pitch = 0.0f; ///< Pitch angle: rotation around lateral/Y axis (nose up/down)
-        float roll  = 0.0f; ///< Roll angle: rotation around longitudinal/X axis (banking left/right)
-        float yaw   = 0.0f; ///< Yaw angle: heading / rotation around vertical/Z axis (integrated from gyro)
+        // Orientation Euler Angles (in degrees or radians depending on setDegrees())
+        float pitch = 0.0f; ///< Pitch angle: rotation around lateral/Y axis
+        float roll  = 0.0f; ///< Roll angle: rotation around longitudinal/X axis
+        float yaw   = 0.0f; ///< Yaw angle: rotation around vertical/Z axis
 
         // Unit Orientation Quaternion [qw, qx, qy, qz] (Hamilton convention)
         float qw = 1.0f; ///< Quaternion scalar component (W)
@@ -40,56 +39,51 @@ namespace BMI160_ESPx_Types {
         float qz = 0.0f; ///< Quaternion vector Z component
 
         // Die temperature
-        float temperature = 0.0f; ///< Internal sensor die temperature in degrees Celsius (°C)
+        float temperature = 0.0f; ///< Sensor die temperature in °C
 
-        // High-precision ESP32 microsecond timestamp
-        uint64_t timestamp_us = 0; ///< esp_timer_get_time() timestamp in microseconds (μs) when sample was read
+        // Timestamp
+        uint64_t timestamp_us = 0; ///< esp_timer_get_time() timestamp in microseconds
     };
 
     /**
      * @struct RawMotion
-     * @brief Uncalibrated 16-bit raw integer readings from BMI160 hardware registers.
+     * @brief Uncalibrated 16-bit integer readings from BMI160 registers.
      * 
-     * Contains raw signed 16-bit integers directly from registers 0x0C through 0x17.
-     * Useful for direct integer DSP pipelines, external custom calibration routines, or minimal-overhead logging.
+     * Contains raw signed 16-bit integers from registers 0x0C through 0x17.
      */
     struct RawMotion {
-        int16_t ax = 0; ///< Raw 16-bit signed accelerometer X register value
-        int16_t ay = 0; ///< Raw 16-bit signed accelerometer Y register value
-        int16_t az = 0; ///< Raw 16-bit signed accelerometer Z register value
-        int16_t gx = 0; ///< Raw 16-bit signed gyroscope X register value
-        int16_t gy = 0; ///< Raw 16-bit signed gyroscope Y register value
-        int16_t gz = 0; ///< Raw 16-bit signed gyroscope Z register value
+        int16_t ax = 0; ///< Raw 16-bit accelerometer X register value
+        int16_t ay = 0; ///< Raw 16-bit accelerometer Y register value
+        int16_t az = 0; ///< Raw 16-bit accelerometer Z register value
+        int16_t gx = 0; ///< Raw 16-bit gyroscope X register value
+        int16_t gy = 0; ///< Raw 16-bit gyroscope Y register value
+        int16_t gz = 0; ///< Raw 16-bit gyroscope Z register value
     };
 
     /**
      * @enum FusionMode
-     * @brief Sensor fusion algorithm selection for real-time 6-DOF attitude estimation.
+     * @brief Orientation filter selection.
      */
     enum class FusionMode : uint8_t {
         /**
-         * @brief Lightweight 2-axis tilt filter combining gravity vector and integrated gyro rates.
-         * 
-         * Fast, deterministic execution with negligible CPU overhead.
+         * @brief 2-axis tilt filter combining gravity vector and integrated gyro rates.
          */
         COMPLEMENTARY = 0,
 
         /**
-         * @brief 6-DOF gradient-descent quaternion AHRS filter.
-         * 
-         * Provides true 3D spatial attitude representation with zero gimbal lock.
+         * @brief Quaternion filter combining accelerometer and gyroscope.
          */
         MADGWICK      = 1
     };
 
     /**
      * @enum FilterBandwidth
-     * @brief Digital Low-Pass Filter (DLPF) / anti-aliasing oversampling modes.
+     * @brief Digital Low-Pass Filter (DLPF) oversampling modes.
      */
     enum class FilterBandwidth : uint8_t {
-        OSR4   = 0x00, ///< 4× oversampling (maximum vibration damping; highest noise attenuation)
-        OSR2   = 0x10, ///< 2× oversampling (balanced filter response and latency)
-        NORMAL = 0x20  ///< Normal mode (filter cutoff frequency = 0.5 × ODR; fastest tracking response)
+        OSR4   = 0x00, ///< 4× oversampling
+        OSR2   = 0x10, ///< 2× oversampling
+        NORMAL = 0x20  ///< Normal mode (cutoff frequency = 0.5 × ODR)
     };
 
     /**

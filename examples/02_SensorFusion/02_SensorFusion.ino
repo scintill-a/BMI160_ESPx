@@ -15,11 +15,11 @@ void setup() {
     }
 
     // Select fusion algorithm:
-    // 1. Madgwick AHRS (default): 6-DOF quaternion filter for full 3D attitude
+    // 1. Madgwick filter (default): quaternion filter using accel and gyro
     imu.setFusionAlgorithm(FusionMode::MADGWICK);
     imu.setMadgwickBeta(0.1f);
 
-    // 2. Alternatively, use the Complementary filter for simple 2-axis tilt:
+    // 2. Or the Complementary filter for tilt estimation:
     // imu.setFusionAlgorithm(FusionMode::COMPLEMENTARY);
     // imu.setFilterWeight(0.98f);
 

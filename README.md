@@ -1,18 +1,20 @@
 # BMI160_ESPx
 
-A streamlined, high-performance ESP32 driver for the Bosch BMI160 6-axis IMU (accelerometer and gyroscope) with built-in sensor fusion (Madgwick AHRS / Complementary tilt), active I2C bus recovery, stationary calibration, and tare zeroing.
+An ESP32 Arduino/PlatformIO library for the Bosch BMI160 6-axis accelerometer and gyroscope.
+
+It handles I2C communication, sensor configuration, basic bus recovery, stationary calibration, and orientation estimation (Madgwick AHRS or Complementary filter).
 
 ---
 
-## Features
+## What It Includes
 
-- **6-DOF Motion:** Reads linear acceleration (`ax`, `ay`, `az`), angular velocity (`gx`, `gy`, `gz`), and temperature in physical engineering units.
-- **Real-Time Sensor Fusion:** Built-in **Madgwick AHRS** (quaternion 3D attitude with zero gimbal lock) and **Complementary** tilt filters.
-- **Dynamic Motion Rejection & ZUPT:** Gating to reject linear motion acceleration spikes during rapid movements, and Zero-Velocity Update (ZUPT) deadband to prevent stationary yaw drift.
-- **I2C Bus Auto-Recovery:** Automatic 9-clock recovery to clear stuck slave buses if line lockups occur.
-- **Auto-Address Probing:** Automatically detects both `0x68` (SDO to GND) and `0x69` (SDO to 3.3V).
-- **Coordinate Transformation & Tare:** Full axis remapping (`setAxisRemap`), sign inversion (`invertPitch/Roll/Yaw`), and runtime tare offsets.
-- **Thread-Safe:** FreeRTOS recursive mutex guarantees safe multi-task I2C bus access on dual-core ESP32 systems.
+- **Sensor readings:** Linear acceleration (`ax, ay, az`), angular rate (`gx, gy, gz`), and die temperature.
+- **Orientation estimation:** Madgwick AHRS (pitch, roll, yaw, and quaternions) and Complementary filter.
+- **Drift mitigation:** Stationary deadband (ZUPT) to reduce yaw drift when motionless, and acceleration gating during sudden movement.
+- **Bus recovery:** 9-clock recovery pulse on startup if the I2C bus is stuck low.
+- **Address check:** Probes both `0x68` and `0x69`.
+- **Coordinate adjustments:** Axis remapping (`setAxisRemap`), sign inversion (`invertPitch/Roll/Yaw`), and zero taring (`tare()`).
+- **Thread safety:** FreeRTOS recursive mutex around I2C transactions.
 
 ---
 
@@ -20,7 +22,7 @@ A streamlined, high-performance ESP32 driver for the Bosch BMI160 6-axis IMU (ac
 
 ### PlatformIO
 
-Add the repository URL to `lib_deps` in your `platformio.ini`:
+Add the repository URL to `lib_deps` in `platformio.ini`:
 
 ```ini
 [env:esp32dev]
@@ -33,15 +35,15 @@ lib_deps =
 
 ---
 
-## Wiring (ESP32)
+## Wiring
 
 | BMI160 Pin | ESP32 Pin | Notes |
 | :--- | :--- | :--- |
-| **VCC** | **3.3V** | Connect to 3.3V (do not use 5V). |
-| **GND** | **GND** | Common ground. |
+| **VCC** | **3.3V** | Connect to 3.3V power (not 5V). |
+| **GND** | **GND** | Ground. |
 | **SDA** | **GPIO 21** | Default ESP32 I2C data pin. |
 | **SCL** | **GPIO 22** | Default ESP32 I2C clock pin. |
-| **SA0 / SDO** | *(Leave floating)* | Optional. Default pulls to GND (`0x68`). Connect to 3.3V for `0x69`. |
+| **SA0 / SDO** | *(Leave floating)* | Optional. Pulled to GND (`0x68`) by default. Connect to 3.3V for `0x69`. |
 
 ---
 
@@ -56,17 +58,18 @@ BMI160_ESPx imu;
 void setup() {
     Serial.begin(115200);
 
+    // Initialize with SDA=21, SCL=22
     if (!imu.begin(21, 22)) {
-        Serial.println("BMI160 not found, check wiring.");
+        Serial.println("BMI160 not detected. Check wiring.");
         while (1) delay(100);
     }
 
-    // Configure ranges and rate:
+    // Set full-scale ranges and rate:
     imu.setAccelRange(2);   // ±2g
     imu.setGyroRange(250);  // ±250 °/s
     imu.setDataRate(100);   // 100 Hz
 
-    // Quick calibration (keep sensor still)
+    // Keep the sensor still while calibrating gyro bias
     imu.calibrate(200);
 }
 
@@ -79,69 +82,69 @@ void loop() {
 
 ---
 
-## Sensor Fusion & Tuning
+## Orientation Filters
 
 ### 1. Madgwick AHRS (Default)
-A 6-DOF quaternion filter for complete 3D orientation without gimbal lock:
+Combines accelerometer and gyroscope data to produce quaternions and Euler angles:
 ```cpp
 imu.setFusionAlgorithm(FusionMode::MADGWICK); // Default
-imu.setMadgwickBeta(0.1f);                    // Divergence gain beta (default: 0.1f)
+imu.setMadgwickBeta(0.1f);                    // Filter gain (default: 0.1f)
 ```
-Outputs quaternions (`m.qw`, `m.qx`, `m.qy`, `m.qz`) and Euler angles (`m.pitch`, `m.roll`, `m.yaw`).
+Outputs quaternions (`m.qw, m.qx, m.qy, m.qz`) and Euler angles (`m.pitch, m.roll, m.yaw`).
 
 ### 2. Complementary Filter
-A lightweight tilt filter combining gyro integration with accelerometer gravity tilt:
+A simpler tilt filter combining integrated gyro rates with gravity tilt:
 ```cpp
 imu.setFusionAlgorithm(FusionMode::COMPLEMENTARY);
-imu.setFilterWeight(0.98f);                   // Weight alpha in [0.0, 1.0] (default: 0.98f)
+imu.setFilterWeight(0.98f);                   // Alpha weight in [0.0, 1.0] (default: 0.98f)
 ```
 
 ---
 
-## API Cheatsheet
+## Common Methods
 
-### Initialization & Calibration
+### Setup & Calibration
 ```cpp
 bool begin(int sda = 21, int scl = 22, uint32_t frequency = 400000, uint8_t address = 0);
 void calibrate(uint16_t samples = 200);
-uint8_t getAddress(); // Returns detected address (0x68 or 0x69)
+uint8_t getAddress(); // Returns detected I2C address (0x68 or 0x69)
 ```
 
-### Reading Motion Data
+### Reading Telemetry
 ```cpp
-Motion read();             // Returns Motion struct
-bool read(Motion &m);      // Pass-by-reference read, returns true on success
-const Motion& getLastMotion(); // Returns reference to last cached sample
-float getPitch();          // Latest pitch angle
-float getRoll();           // Latest roll angle
-float getYaw();            // Latest yaw angle
-float getTemperature();    // Die temperature in °C
+Motion read();                 // Returns populated Motion struct
+bool read(Motion &m);          // Pass-by-reference read, returns true on success
+const Motion& getLastMotion(); // Reference to the last read sample
+float getPitch();              // Current pitch angle
+float getRoll();               // Current roll angle
+float getYaw();                // Current yaw angle
+float getTemperature();        // Die temperature in °C
 ```
 
 ### Configuration
 ```cpp
-imu.setAccelRange(2);      // 2, 4, 8, 16 (in g)
-imu.setGyroRange(250);     // 125, 250, 500, 1000, 2000 (in °/s)
-imu.setDataRate(100);      // 25, 50, 100, 200, 400, 800, 1600 (in Hz)
+imu.setAccelRange(2);               // 2, 4, 8, 16 (in g)
+imu.setGyroRange(250);              // 125, 250, 500, 1000, 2000 (in °/s)
+imu.setDataRate(100);               // 25, 50, 100, 200, 400, 800, 1600 (in Hz)
 imu.setDLPF(FilterBandwidth::OSR4); // OSR4, OSR2, NORMAL
-imu.setDegrees(true);      // true for degrees (°), false for radians
+imu.setDegrees(true);               // true for degrees (°), false for radians
 ```
 
-### Coordinate Transforms & Offsets
+### Offsets & Coordinate Remapping
 ```cpp
-imu.setAxisRemap(1, 2, 3); // Map sensor axes (+/-1, +/-2, +/-3) to vehicle frame
-imu.invertPitch(true);     // Invert pitch sign
+imu.setAxisRemap(1, 2, 3); // Map sensor axes (+/-1, +/-2, +/-3) to board orientation
+imu.invertPitch(true);     // Invert pitch direction
 imu.tare();                // Set current orientation as zero reference
-imu.resetTare();           // Clear zero tare offsets
+imu.resetTare();           // Clear tare offsets back to zero
 ```
 
 ---
 
 ## Examples
 
-Check the [examples/](examples/) directory for ready-to-flash sketches:
-- **[01_BasicMotion](examples/01_BasicMotion/01_BasicMotion.ino)**: Basic motion and orientation reading.
-- **[02_SensorFusion](examples/02_SensorFusion/02_SensorFusion.ino)**: Choosing and tuning between Madgwick AHRS and Complementary filters.
+Example sketches are in the [examples/](examples/) folder:
+- **[01_BasicMotion](examples/01_BasicMotion/01_BasicMotion.ino)**: Initializing the sensor and reading orientation.
+- **[02_SensorFusion](examples/02_SensorFusion/02_SensorFusion.ino)**: Tuning Madgwick and Complementary filters.
 
 ---
 
