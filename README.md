@@ -33,6 +33,17 @@ lib_deps =
     https://github.com/scintill-a/BMI160_ESPx.git
 ```
 
+### Arduino IDE
+
+1. Download this repository as a `.zip` file:
+   - Click the green **Code** button at the top of the repository on GitHub and select **Download ZIP** (or [download directly](https://github.com/scintill-a/BMI160_ESPx/archive/refs/heads/main.zip)).
+2. In the Arduino IDE, navigate to **Sketch** &rarr; **Include Library** &rarr; **Add .ZIP Library...**.
+3. Select the downloaded `.zip` file.
+4. Open an example from **File** &rarr; **Examples** &rarr; **BMI160_ESPx** &rarr; **01_BasicMotion**.
+
+> [!TIP]
+> If extracting manually, ensure the folder inside `Arduino/libraries/` is named `BMI160_ESPx` (remove any `-main` suffix added by GitHub) and restart the Arduino IDE.
+
 ---
 
 ## Wiring
