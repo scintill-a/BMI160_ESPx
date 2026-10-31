@@ -4,7 +4,7 @@
 
 /**
  * @file BMI160_Types.h
- * @brief Data structures and types for BMI160_ESPx.
+ * @brief Core telemetry data structures, enums, and types for BMI160_ESPx.
  */
 
 namespace BMI160_ESPx_Types {
@@ -70,7 +70,7 @@ namespace BMI160_ESPx_Types {
         /**
          * @brief Lightweight 2-axis tilt filter combining gravity vector and integrated gyro rates.
          * 
-         * Extremely fast, deterministic execution with negligible CPU overhead.
+         * Fast, deterministic execution with negligible CPU overhead.
          */
         COMPLEMENTARY = 0,
 
@@ -93,16 +93,6 @@ namespace BMI160_ESPx_Types {
     };
 
     /**
-     * @enum PowerMode
-     * @brief Operating power modes for accelerometer and gyroscope cores.
-     */
-    enum class PowerMode : uint8_t {
-        NORMAL,    ///< Full performance: both accelerometer and gyroscope actively sampling
-        LOW_POWER, ///< Low power mode: accelerometer duty-cycled, gyroscope suspended
-        SUSPEND    ///< Deep sleep standby (< 5 μA): all sensor cores suspended
-    };
-
-    /**
      * @enum ErrorCode
      * @brief Structured diagnostic error codes recorded during bus and sensor operations.
      */
@@ -112,8 +102,7 @@ namespace BMI160_ESPx_Types {
         ERR_CHIP_NOT_FOUND, ///< Sensor chip ID did not return expected value (0xD1) at probed addresses
         ERR_RESET_TIMEOUT,  ///< Software reset did not complete within expected time window
         ERR_I2C_NACK,       ///< I2C transmission was not acknowledged (NACK) by slave device
-        ERR_MUTEX_TIMEOUT,  ///< FreeRTOS transaction synchronization mutex acquisition timed out
-        ERR_FIFO_OVERFLOW   ///< Hardware FIFO buffer overflow condition detected
+        ERR_MUTEX_TIMEOUT   ///< FreeRTOS transaction synchronization mutex acquisition timed out
     };
 
     /**
